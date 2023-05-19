@@ -34,9 +34,12 @@ String dataReceived = "";
 // See the following for generating UUIDs:
 // https://www.uuidgenerator.net/
 
-#define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"  // UART service UUID
-#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+#define DATA_SERVICE_UUID "bd9ab0ee-b957-4f64-8a1f-c3e7dd46fab4"  // Servicio para leer y escribir 
+#define SENSOR_SERVICE_UUID "44a28349-14d8-4c84-af39-a656e00adc9f" // Servicio para sensores y estados en tiempo real 
+#define CHARACTERISTIC_INFO_UUID "56fa711f-5b89-4109-8db7-52b2f731e013" // Caracteristica para leer metadatos del equipo
+#define CHARACTERISTIC_STATUS_UUID "5f3a7010-9f20-4b53-88c4-14a0fdc95f06"
+#define CHARACTERISTIC_STATUS_UUID "5f3a7010-9f20-4b53-88c4-14a0fdc95f06"
+#define CHARACTERISTIC_STATUS_UUID "5f3a7010-9f20-4b53-88c4-14a0fdc95f06"
 
 /* This function handles the server callbacks */
 class MyServerCallbacks : public BLEServerCallbacks {
@@ -116,6 +119,7 @@ void setup() {
 
 void loop() {
 
+  // Aqui recolectas los datos de los sensores y enviarlo con setValue, luego notificar
   if (deviceConnected) {
     pTxCharacteristic->setValue(&txValue, 1);
     pTxCharacteristic->notify();
