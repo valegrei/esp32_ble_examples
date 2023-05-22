@@ -16,7 +16,7 @@
    5. Start the service.
    6. Start advertising.
 
-   In this example rxValue is the data received (only accessible inside that function).
+   In this example inputValue is the data received (only accessible inside that function).
    And txValue is the data to be sent, in this example just a byte incremented every second. 
 */
 #include <BLEDevice.h>
@@ -25,7 +25,9 @@
 #include <BLE2902.h>
 
 BLEServer *pServer = NULL;
-BLECharacteristic *pTxCharacteristic;
+BLECharacteristic *infoCharacteristic;
+BLECharacteristic *resCharacteristic;
+BLECharacteristic *statusCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 uint8_t txValue = 0;
@@ -34,12 +36,15 @@ String dataReceived = "";
 // See the following for generating UUIDs:
 // https://www.uuidgenerator.net/
 
-#define DATA_SERVICE_UUID "bd9ab0ee-b957-4f64-8a1f-c3e7dd46fab4"  // Servicio para leer y escribir 
-#define SENSOR_SERVICE_UUID "44a28349-14d8-4c84-af39-a656e00adc9f" // Servicio para sensores y estados en tiempo real 
-#define CHARACTERISTIC_INFO_UUID "56fa711f-5b89-4109-8db7-52b2f731e013" // Caracteristica para leer metadatos del equipo
-#define CHARACTERISTIC_STATUS_UUID "5f3a7010-9f20-4b53-88c4-14a0fdc95f06"
-#define CHARACTERISTIC_STATUS_UUID "5f3a7010-9f20-4b53-88c4-14a0fdc95f06"
-#define CHARACTERISTIC_STATUS_UUID "5f3a7010-9f20-4b53-88c4-14a0fdc95f06"
+// Servicios
+#define DATA_SERVICE_UUID "49e0b347-e722-4ac0-92fb-a316e887fdea"  // Leer y escribir 
+#define SENSOR_SERVICE_UUID "5240682c-f85b-455c-ba69-2cadcefbabca" // Sensores y estados en tiempo real 
+
+// Caracteristicas
+#define CHARACTERISTIC_INFO_UUID "bee6d633-72e2-4336-9199-faa484d14b95" // Lee metadatos del equipo
+#define CHARACTERISTIC_REQ_UUID "52491fd0-7498-4cd5-9cd6-b03c1d3b5272" // Recibe comandos
+#define CHARACTERISTIC_RES_UUID "64f316dc-0a57-49f0-9f48-9500a9009d93" // Responde a comandos
+#define CHARACTERISTIC_STATUS_UUID "bee6d633-72e2-4336-9199-faa484d14b95" // Notifica el estado de los sensores a tiempo real
 
 /* This function handles the server callbacks */
 class MyServerCallbacks : public BLEServerCallbacks {
@@ -61,22 +66,17 @@ void printDataReceived() {
 
 class MyCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
-    std::string rxValue = pCharacteristic->getValue();
+    std::string inputValue = pCharacteristic->getValue();
 
-    if (rxValue.length() > 0) {
-      //Serial.println("*********");
-      //Serial.print("Received Value: ");
-      for (int i = 0; i < rxValue.length(); i++) {
-        //   Serial.print(rxValue[i]);
-        if (rxValue[i] == '|') {
+    if (inputValue.length() > 0) {
+      for (int i = 0; i < inputValue.length(); i++) {
+        if (inputValue[i] == '|') {
           printDataReceived();
           dataReceived = "";
         } else {
-          dataReceived = dataReceived + rxValue[i];
+          dataReceived = dataReceived + inputValue[i];
         }
       }
-      // Serial.println();
-      //Serial.println("*********");
     }
   }
 };
@@ -94,23 +94,35 @@ void setup() {
   pServer->setCallbacks(new MyServerCallbacks());  // Set the function that handles Server Callbacks
 
   // Create the BLE Service
-  BLEService *pService = pServer->createService(SERVICE_UUID);
+  BLEService *dataService = pServer->createService(DATA_SERVICE_UUID);
+  BLEService *sensorService = pServer->createService(SENSOR_SERVICE_UUID);
 
   // Create a BLE Characteristic
-  pTxCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID_TX,
-    BLECharacteristic::PROPERTY_NOTIFY);
+  infoCharacteristic = dataService->createCharacteristic(
+    CHARACTERISTIC_INFO_UUID,
+    BLECharacteristic::PROPERTY_READ);
 
-  pTxCharacteristic->addDescriptor(new BLE2902());
-
-  BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID_RX,
+  BLECharacteristic *reqCharacteristic = dataService->createCharacteristic(
+    CHARACTERISTIC_REQ_UUID,
     BLECharacteristic::PROPERTY_WRITE);
 
-  pRxCharacteristic->setCallbacks(new MyCallbacks());
+  reqCharacteristic->setCallbacks(new MyCallbacks());
+
+  resCharacteristic = dataService->createCharacteristic(
+    CHARACTERISTIC_RES_UUID,
+    BLECharacteristic::PROPERTY_NOTIFY);
+
+  resCharacteristic->addDescriptor(new BLE2902());
+
+  statusCharacteristic = sensorService->createCharacteristic(
+    CHARACTERISTIC_STATUS_UUID,
+    BLECharacteristic::PROPERTY_NOTIFY);
+
+  statusCharacteristic->addDescriptor(new BLE2902());
 
   // Start the service
-  pService->start();
+  dataService->start();
+  sensorService->start();
 
   // Start advertising
   pServer->getAdvertising()->start();
